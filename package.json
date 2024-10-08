@@ -41,5 +41,6 @@
   },
   "devDependencies": {
     "@types/three": "^0.169.0"
-  }
+  },
+  "license": "MIT"
 }
