@@ -59,7 +59,19 @@ An interactive music visualizer built with React, Web Audio API, and Three.js.
 
 ## Usage
 
-[Provide brief instructions on how to use the visualizer, upload audio, change visualization modes, etc.]
+1. Launch the application in your web browser.
+2. Click the upload button (cloud icon) to select an audio file from your device.
+3. Use the play/pause button to control audio playback.
+4. Adjust the volume using the volume slider.
+5. Select different visualization modes using the dropdown menu:
+   - Default Mode
+   - Bass Mode
+   - Chill Mode
+   - Explosive Mode
+6. Use the progress bar to seek to different parts of the audio track.
+7. Toggle loop mode with the repeat button for continuous playback.
+
+Experiment with different audio tracks and visualization modes to create unique visual experiences!
 
 ## Contributing
 
@@ -71,4 +83,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- [List any libraries, tutorials, or resources that significantly helped you]
+- [Three.js](https://threejs.org/) for 3D graphics rendering
+- [React](https://reactjs.org/) for building the user interface
+- [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API) for audio processing capabilities
+- [Lucide React](https://lucide.dev/) for icon components
