@@ -4,31 +4,24 @@ import styles from './ModernVisualizer.module.css'
 import Scene from './3DAudioVisualizer.tsx'
 import ErrorBoundary from './ErrorBoundary.tsx'
 
-interface ModernVisualizerProps {
-  audioFile: File | null
-  analyser: AnalyserNode | null
-  onFileUpload: (file: File) => void
-  onVisualizerModeChange: (mode: string) => void
-}
-
-export default function ModernVisualizer({ 
-  audioFile,
-  analyser,
-  onFileUpload,
-  onVisualizerModeChange
-}: ModernVisualizerProps) {
+export default function ModernVisualizer() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLooping, setIsLooping] = useState(false)
   const [volume, setVolume] = useState(100)
   const [visualizerMode, setVisualizerMode] = useState('default')
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [audioFile, setAudioFile] = useState<File | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
+  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null)
 
   useEffect(() => {
     if (audioFile) {
       const audio = new Audio(URL.createObjectURL(audioFile))
       audioRef.current = audio
+      audio.crossOrigin = "anonymous"; // Important for CORS issues
       audio.addEventListener('loadedmetadata', () => {
         setDuration(audio.duration)
       })
@@ -43,9 +36,23 @@ export default function ModernVisualizer({
           setIsPlaying(false)
         }
       })
+
+      // Create AudioContext and AnalyserNode
+      audioContextRef.current = new window.AudioContext();
+      analyserRef.current = audioContextRef.current.createAnalyser()
+      analyserRef.current.fftSize = 2048
+
+      // Create a MediaElementAudioSourceNode from the audio element
+      sourceRef.current = audioContextRef.current.createMediaElementSource(audio)
+      sourceRef.current.connect(analyserRef.current)
+      analyserRef.current.connect(audioContextRef.current.destination)
+
       return () => {
         audio.pause()
         URL.revokeObjectURL(audio.src)
+        sourceRef.current?.disconnect()
+        analyserRef.current?.disconnect()
+        audioContextRef.current?.close()
       }
     }
   }, [audioFile, isLooping])
@@ -56,6 +63,7 @@ export default function ModernVisualizer({
         audioRef.current.pause()
       } else {
         audioRef.current.play()
+        audioContextRef.current?.resume()
       }
       setIsPlaying(!isPlaying)
     }
@@ -71,7 +79,7 @@ export default function ModernVisualizer({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      onFileUpload(file)
+      setAudioFile(file)
       setIsPlaying(false)
       setCurrentTime(0)
     }
@@ -80,7 +88,6 @@ export default function ModernVisualizer({
   const handleVisualizerModeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const mode = e.target.value
     setVisualizerMode(mode)
-    onVisualizerModeChange(mode)
   }
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -112,7 +119,7 @@ export default function ModernVisualizer({
       <div className={styles.visualizer}>
         {audioFile ? (
           <ErrorBoundary>
-                  <Scene analyser={analyser} isPlaying={isPlaying} mode={visualizerMode} />
+            <Scene analyser={analyserRef.current} isPlaying={isPlaying} mode={visualizerMode} />
           </ErrorBoundary>
         ) : (
           <div className={styles.noFileMessage}>
