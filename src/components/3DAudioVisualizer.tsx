@@ -24,6 +24,7 @@ const fragmentShader = `
   uniform float audioTreble;
   uniform float audioPeak;
   uniform float rotationSpeed;
+  uniform int instrumentType; // Added uniform
   uniform int mode;
   uniform vec3 color;
   varying vec2 vUv;
@@ -93,21 +94,19 @@ const fragmentShader = `
     float size = 0.3 + 0.05 * sin(time);
     size += 0.1 * audioLevel;
 
-    float circleSDF = sdCircle(uv, size);
-    float squareSDF = sdSquare(uv, size);
-    float diamondSDF = sdDiamond(uv, size);
-
     float shapeSDF;
-    if (audioLevel < 0.4) {
-      shapeSDF = circleSDF;
-    } else if (audioLevel < 0.7) {
-      float t = (audioLevel - 0.4) / 0.3;
-      shapeSDF = mix(circleSDF, squareSDF, t);
-    } else if (audioLevel < 0.9) {
-      shapeSDF = squareSDF;
+
+    // Modify shape based on detected instrument
+    if (instrumentType == 1) { // Kick
+      shapeSDF = sdCircle(uv, size);
+      size += 0.1 * sin(time * 10.0); // Pulsate faster for kick
+    } else if (instrumentType == 2) { // Bass
+      shapeSDF = sdSquare(uv, size);
+    } else if (instrumentType == 3) { // Synth
+      shapeSDF = sdDiamond(uv, size);
     } else {
-      float t = (audioLevel - 0.9) / 0.1;
-      shapeSDF = mix(squareSDF, diamondSDF, t);
+      // Default shape when no instrument is detected
+      shapeSDF = mix(sdCircle(uv, size), sdSquare(uv, size), audioLevel);
     }
 
     float edgeWidth = 0.005;
@@ -125,6 +124,7 @@ const fragmentShader = `
 
     return color;
   }
+
 
   vec3 bassMode(vec2 uv) {
     float f = sin(uv.x * 20.0 + time * audioBass * 10.0) * cos(uv.y * 20.0 + time * audioBass * 10.0) * 0.5 + 0.5;
@@ -197,6 +197,7 @@ const Scene: React.FC<SceneProps> = ({ analyser, isPlaying, mode }) => {
   const [kickDetected, setKickDetected] = useState(false);
   const [bassDetected, setBassDetected] = useState(false);
   const [synthDetected, setSynthDetected] = useState(false);
+  const [instrumentType, setInstrumentType] = useState(0); // New state variable
 
   const smoothedAudioDataRef = useRef({
     kick: 0,
@@ -243,6 +244,7 @@ const Scene: React.FC<SceneProps> = ({ analyser, isPlaying, mode }) => {
         rotationSpeed: { value: 0.2 },
         mode: { value: 0 },
         color: { value: new THREE.Color(0xffffff) },
+        instrumentType: { value: 0 }, // Added uniform
       },
     });
 
@@ -317,11 +319,20 @@ const Scene: React.FC<SceneProps> = ({ analyser, isPlaying, mode }) => {
             setBassDetected(detectedInstrument.instrument === 'Bass');
             setSynthDetected(detectedInstrument.instrument === 'Synth');
 
+            // Update instrumentType state
             if (detectedInstrument.instrument !== 'None' && detectedInstrument.score > 0.1) {
+              setInstrumentType(
+                detectedInstrument.instrument === 'Kick' ? 1 :
+                detectedInstrument.instrument === 'Bass' ? 2 :
+                detectedInstrument.instrument === 'Synth' ? 3 :
+                0
+              );
               console.log(
                 `Detected: ${detectedInstrument.instrument}, Score: ${detectedInstrument.score.toFixed(4)}, Features:`,
                 { rms, spectralCentroid, spectralFlatness, spectralSlope, spectralRolloff }
               );
+            } else {
+              setInstrumentType(0);
             }
           }
         },
@@ -350,6 +361,9 @@ const Scene: React.FC<SceneProps> = ({ analyser, isPlaying, mode }) => {
         timeRef.current += 0.01;
 
         materialRef.current.uniforms.time.value = timeRef.current;
+
+        // Update instrumentType uniform
+        materialRef.current.uniforms.instrumentType.value = instrumentType;
 
         // Change color based on instrument detection
         const targetColor = kickDetected
@@ -385,7 +399,7 @@ const Scene: React.FC<SceneProps> = ({ analyser, isPlaying, mode }) => {
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [isPlaying, kickDetected, bassDetected, synthDetected]);
+  }, [isPlaying, instrumentType, kickDetected, bassDetected, synthDetected]);
 
   useEffect(() => {
     if (materialRef.current) {
